@@ -10,7 +10,7 @@ export default function MqttTestPage() {
 
   useEffect(() => {
     // HiveMQ WebSocket broker
-    const client = mqtt.connect("wss://broker.hivemq.com:8884/mqtt");
+    const client = mqtt.connect("wss://test.mosquitto.org:8081/mqtt");
     clientRef.current = client;
 
     client.on("connect", () => {
