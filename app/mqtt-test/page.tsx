@@ -14,12 +14,19 @@ export default function MqttTestPage() {
     script.onload = () => {
       console.log("MQTT CDN yüklendi!");
 
-      // MQTT bağlantısını başlat
-      const client = (window as any).mqtt.connect("wss://test.mosquitto.org:8081/mqtt");
+      // --- 🔥 HiveMQ Cloud WEB SOCKET bağlantısı ---
+      const client = (window as any).mqtt.connect(
+        "wss://5ea19a4f93b54b1a9b3944441bb6b45e.s1.eu.hivemq.cloud:8884/mqtt",
+        {
+          username: "musacelik",
+          password: "132228071.Aa",
+        }
+      );
+
       clientRef.current = client;
 
       client.on("connect", () => {
-        console.log("MQTT: Bağlantı başarılı!");
+        console.log("MQTT: HiveMQ Cloud bağlantısı başarılı!");
         client.subscribe(TOPIC);
         console.log("Topic'e abone olundu:", TOPIC);
       });
@@ -30,6 +37,10 @@ export default function MqttTestPage() {
 
       client.on("error", (err: any) => {
         console.error("MQTT Hatası:", err);
+      });
+
+      client.on("close", () => {
+        console.warn("MQTT bağlantısı kapandı");
       });
     };
 
@@ -43,7 +54,7 @@ export default function MqttTestPage() {
   function sendCommand(cmd: string) {
     const client = clientRef.current;
     if (!client || !client.connected) {
-      console.warn("MQTT bağlı değil:", cmd);
+      console.warn("MQTT bağlı değil, komut gönderilemedi:", cmd);
       return;
     }
     client.publish(TOPIC, cmd);
@@ -63,7 +74,7 @@ export default function MqttTestPage() {
       }}
     >
       <h1>MQTT Motor Kontrol</h1>
-      <p>Butonlara basınca ESP32 motor hareket etmeli.</p>
+      <p>Butonlara bastığında ESP32 motor çalışacak.</p>
 
       <div style={{ display: "flex", gap: "20px" }}>
         <button
