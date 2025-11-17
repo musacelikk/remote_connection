@@ -15,7 +15,7 @@ export default function MqttTestPage() {
       console.log("MQTT CDN yüklendi!");
 
       // MQTT bağlantısını başlat
-      const client = (window as any).mqtt.connect("wss://broker.hivemq.com:8884/mqtt");
+      const client = (window as any).mqtt.connect("wss://test.mosquitto.org:8081/mqtt");
       clientRef.current = client;
 
       client.on("connect", () => {
