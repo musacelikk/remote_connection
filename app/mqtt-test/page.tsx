@@ -1,41 +1,49 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import mqtt, { MqttClient } from "mqtt";
 
 const TOPIC = "motor/control";
 
 export default function MqttTestPage() {
-  const clientRef = useRef<MqttClient | null>(null);
+  const clientRef = useRef<any>(null);
 
   useEffect(() => {
-    // HiveMQ WebSocket broker
-    const client = mqtt.connect("wss://test.mosquitto.org:8081/mqtt");
-    clientRef.current = client;
+    // MQTT CDN scriptini ekle
+    const script = document.createElement("script");
+    script.src = "https://unpkg.com/mqtt/dist/mqtt.min.js";
+    script.onload = () => {
+      console.log("MQTT CDN yüklendi!");
 
-    client.on("connect", () => {
-      console.log("MQTT: Bağlantı başarılı!");
-      client.subscribe(TOPIC);
-      console.log("Topic'e abone olundu:", TOPIC);
-    });
+      // MQTT bağlantısını başlat
+      const client = (window as any).mqtt.connect("wss://broker.hivemq.com:8884/mqtt");
+      clientRef.current = client;
 
-    client.on("message", (topic, message) => {
-      console.log("MQTT Mesaj:", topic, "->", message.toString());
-    });
+      client.on("connect", () => {
+        console.log("MQTT: Bağlantı başarılı!");
+        client.subscribe(TOPIC);
+        console.log("Topic'e abone olundu:", TOPIC);
+      });
 
-    client.on("error", (err) => {
-      console.error("MQTT Hatası:", err);
-    });
+      client.on("message", (topic: string, message: any) => {
+        console.log("MQTT Mesaj:", topic, "->", message.toString());
+      });
+
+      client.on("error", (err: any) => {
+        console.error("MQTT Hatası:", err);
+      });
+    };
+
+    document.body.appendChild(script);
 
     return () => {
-      client.end();
+      if (clientRef.current) clientRef.current.end();
     };
   }, []);
 
   function sendCommand(cmd: string) {
     const client = clientRef.current;
     if (!client || !client.connected) {
-      console.warn("MQTT bağlı değil, komut gönderilemedi:", cmd);
+      console.warn("MQTT bağlı değil:", cmd);
       return;
     }
     client.publish(TOPIC, cmd);
@@ -51,21 +59,20 @@ export default function MqttTestPage() {
         gap: "20px",
         alignItems: "center",
         justifyContent: "center",
-        fontFamily: "Arial, sans-serif",
+        fontFamily: "Arial",
       }}
     >
-      <h1>MQTT Motor Kontrol Test</h1>
-      <p>Konsolu aç (F12 → Console) ve log'ları izle.</p>
+      <h1>MQTT Motor Kontrol</h1>
+      <p>Butonlara basınca ESP32 motor hareket etmeli.</p>
 
       <div style={{ display: "flex", gap: "20px" }}>
         <button
           style={{
             padding: "15px 30px",
-            fontSize: "18px",
-            background: "#4CAF50",
+            background: "#4caf50",
             color: "#fff",
+            borderRadius: 8,
             border: "none",
-            borderRadius: "8px",
             cursor: "pointer",
           }}
           onClick={() => sendCommand("forward")}
@@ -76,11 +83,10 @@ export default function MqttTestPage() {
         <button
           style={{
             padding: "15px 30px",
-            fontSize: "18px",
             background: "#555",
             color: "#fff",
+            borderRadius: 8,
             border: "none",
-            borderRadius: "8px",
             cursor: "pointer",
           }}
           onClick={() => sendCommand("stop")}
@@ -91,11 +97,10 @@ export default function MqttTestPage() {
         <button
           style={{
             padding: "15px 30px",
-            fontSize: "18px",
             background: "#f44336",
             color: "#fff",
+            borderRadius: 8,
             border: "none",
-            borderRadius: "8px",
             cursor: "pointer",
           }}
           onClick={() => sendCommand("backward")}
