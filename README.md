@@ -29,6 +29,18 @@ To learn more about Next.js, take a look at the following resources:
 
 You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
+## 🚀 Railway Deployment
+
+Bu proje Railway'a deploy edilebilir. Detaylı bilgi için [README-DEPLOY.md](./README-DEPLOY.md) dosyasına bakın.
+
+### Hızlı Başlangıç (Railway)
+1. [Railway.app](https://railway.app)'e giriş yapın
+2. "New Project" > "Deploy from GitHub repo"
+3. Bu repository'yi seçin
+4. Railway otomatik olarak deploy edecek
+
+**⚠️ Önemli:** Production için Railway PostgreSQL database eklemeniz önerilir (JSON dosyası geçici olabilir).
+
 ## Deploy on Vercel
 
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.

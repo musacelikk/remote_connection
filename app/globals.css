@@ -60,3 +60,60 @@ body {
 .animation-delay-4000 {
   animation-delay: 4s;
 }
+
+/* Responsive Login */
+@media (max-width: 900px) {
+  .login-left {
+    display: none !important;
+  }
+  
+  .login-right {
+    flex: 1 1 100% !important;
+    padding: 20px !important;
+  }
+}
+
+/* Responsive Control Panel */
+@media (max-width: 900px) {
+  .control-left {
+    display: none !important;
+  }
+  
+  .control-right {
+    flex: 1 1 100% !important;
+    padding: 20px !important;
+  }
+}
+
+/* Dark theme input placeholders */
+input::placeholder,
+textarea::placeholder {
+  color: #707070 !important;
+  opacity: 1;
+}
+
+/* Fade in animation */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Loading spinner animation */
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.loading-spinner {
+  animation: spin 1s linear infinite;
+}
