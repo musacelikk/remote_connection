@@ -1,7 +1,7 @@
 'use client';
 
 // ESP IP adresini buraya girin
-const ESP_IP = "http://192.168.1.38/";
+const ESP_IP = "http://172.20.10.7/";
 
 async function sendCommand(command: string) {
   try {
