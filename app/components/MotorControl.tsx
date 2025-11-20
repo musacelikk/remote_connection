@@ -69,7 +69,9 @@ export default function MotorControl() {
         setConnectionStatus("Bağlı");
       });
 
-      client.on("message", (topic: string, message: { toString: () => string }) => {
+      client.on("message", (...args: unknown[]) => {
+        const topic = args[0] as string;
+        const message = args[1] as { toString: () => string };
         console.log("MQTT Mesaj:", topic, "->", message.toString());
       });
 
