@@ -65,8 +65,15 @@ export default function Home() {
 
       // Kod gönderildi - kod giriş ekranını göster
       setIsSubmitting(false);
-      // API'den dönen email'i kullan (normalize edilmiş)
-      setLoginEmail(data.email || formData.email);
+      // API'den dönen email'i kullan (normalize edilmiş) - MUTLAKA API'den gelen email'i kullan
+      // API her zaman email döndürmeli, ama yine de fallback ekliyoruz
+      if (!data.email) {
+        console.error("API'den email dönmedi! Response:", data);
+        setError("Sunucu hatası: Email bilgisi alınamadı");
+        setIsSubmitting(false);
+        return;
+      }
+      setLoginEmail(data.email);
       setShowLoginCode(true);
       setError(data.message || "E-postanıza giriş doğrulama kodu gönderildi");
     } catch (error) {
@@ -96,7 +103,7 @@ export default function Home() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ 
-          email: loginEmail.trim(), 
+          email: loginEmail.toLowerCase().trim(), // Normalize et
           code: normalizedCode // String olarak gönder
         }),
       });

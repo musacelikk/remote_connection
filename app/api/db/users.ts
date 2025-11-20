@@ -80,7 +80,9 @@ async function saveUsers(users: User[]): Promise<void> {
 
 export async function getUserByEmail(email: string): Promise<User | undefined> {
   const users = await loadUsers();
-  return users.find((u) => u.email === email);
+  // Case-insensitive email araması
+  const normalizedEmail = email.toLowerCase().trim();
+  return users.find((u) => u.email.toLowerCase().trim() === normalizedEmail);
 }
 
 export async function getUserById(id: string): Promise<User | undefined> {
