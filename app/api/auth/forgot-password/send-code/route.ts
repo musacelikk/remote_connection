@@ -9,17 +9,25 @@ function generateCode(): string {
 
 // E-posta gönder (Gmail SMTP)
 async function sendEmail(email: string, code: string): Promise<void> {
-  // Gmail SMTP ayarları
+  if (!process.env.MAIL_HOST || !process.env.MAIL_USER || !process.env.MAIL_PASSWORD) {
+    throw new Error("E-posta ayarları eksik!");
+  }
+
   const transporter = nodemailer.createTransport({
-    service: "gmail",
+    host: process.env.MAIL_HOST,
+    port: parseInt(process.env.MAIL_PORT || "587"),
+    secure: false, // 587 için false
     auth: {
-      user: process.env.GMAIL_USER, // Gmail adresiniz
-      pass: process.env.GMAIL_APP_PASSWORD, // Gmail App Password
+      user: process.env.MAIL_USER,
+      pass: process.env.MAIL_PASSWORD,
+    },
+    tls: {
+      rejectUnauthorized: false, // Gmail için gerekli olabilir
     },
   });
 
   const mailOptions = {
-    from: process.env.GMAIL_USER,
+    from: process.env.MAIL_FROM || process.env.MAIL_USER,
     to: email,
     subject: "KepenxIA - Şifre Sıfırlama Kodu",
     html: `
@@ -90,57 +98,52 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Gmail ayarları kontrolü
-    if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
-      console.error("Gmail SMTP ayarları eksik!");
-      // Development modunda console'a yazdır
-      const code = generateCode();
-      console.log(`📧 E-posta Gönderiliyor (Development): ${email}`);
-      console.log(`🔐 Şifre Sıfırlama Kodu: ${code}`);
-      
-      // Kod kaydet (10 dakika geçerli)
-      resetCodes.set(email, {
-        code,
-        expiresAt: Date.now() + 10 * 60 * 1000,
-        email: user.email,
-      });
-
-      return NextResponse.json({
-        success: true,
-        message: "E-posta adresinize şifre sıfırlama kodu gönderildi",
-        // Development için kod göster
-        ...(process.env.NODE_ENV === "development" && { code }),
-      });
+    // E-posta ayarları kontrolü (mail göndermeden önce)
+    if (!process.env.MAIL_HOST || !process.env.MAIL_USER || !process.env.MAIL_PASSWORD) {
+      console.error("E-posta SMTP ayarları eksik! Lütfen .env dosyasını kontrol edin.");
+      return NextResponse.json(
+        { error: "E-posta servisi yapılandırılmamış. Lütfen sistem yöneticisine başvurun." },
+        { status: 500 }
+      );
     }
 
     // Kod oluştur
     const code = generateCode();
 
-    // Eski kodları temizle
-    resetCodes.delete(email);
+    // Email'i normalize et
+    const normalizedEmail = email.toLowerCase().trim();
 
-    // Yeni kodu kaydet (10 dakika geçerli)
-    resetCodes.set(email, {
-      code,
+    // Eski kodları temizle
+    resetCodes.delete(normalizedEmail);
+
+    // ÖNCE kodu kaydet (10 dakika geçerli) - STRING olarak kaydet
+    resetCodes.set(normalizedEmail, {
+      code: code.toString(),
       expiresAt: Date.now() + 10 * 60 * 1000,
       email: user.email,
     });
 
-    // E-postaya kod gönder
+    // SONRA mail gönder - AYNI KOD ile
     try {
-      await sendEmail(user.email, code);
+      await sendEmail(user.email, code.toString());
     } catch (emailError) {
+      // Mail gönderme başarısız olursa kodu sil
+      resetCodes.delete(normalizedEmail);
       console.error("E-posta gönderme hatası:", emailError);
-      // Development modunda console'a yazdır
-      console.log(`📧 E-posta Gönderilemedi (Development): ${email}`);
-      console.log(`🔐 Şifre Sıfırlama Kodu: ${code}`);
-      
-      return NextResponse.json({
-        success: true,
-        message: "E-posta gönderilemedi, kod konsola yazdırıldı",
-        // Development için kod göster
-        ...(process.env.NODE_ENV === "development" && { code }),
+      const errorMessage = emailError instanceof Error ? emailError.message : "Bilinmeyen hata";
+      console.error("Hata detayı:", {
+        message: errorMessage,
+        mailHost: process.env.MAIL_HOST,
+        mailUser: process.env.MAIL_USER ? "Ayarlı" : "Eksik",
+        mailPassword: process.env.MAIL_PASSWORD ? "Ayarlı" : "Eksik",
       });
+      return NextResponse.json(
+        { 
+          error: "E-posta gönderilemedi. Lütfen .env dosyasındaki MAIL ayarlarını kontrol edin.",
+          details: process.env.NODE_ENV === "development" ? errorMessage : undefined
+        },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json({
@@ -169,8 +172,14 @@ export async function PUT(request: NextRequest) {
       );
     }
 
+    // Email'i normalize et
+    const normalizedEmail = email.toLowerCase().trim();
+    
+    // Kodu normalize et (string olarak, trim, sadece rakamlar)
+    const normalizedCode = code.toString().trim().replace(/\D/g, "");
+
     // Kodu kontrol et
-    const savedCode = resetCodes.get(email);
+    const savedCode = resetCodes.get(normalizedEmail);
     if (!savedCode) {
       return NextResponse.json(
         { error: "Geçersiz veya süresi dolmuş kod" },
@@ -178,7 +187,9 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    if (savedCode.code !== code) {
+    // Kod karşılaştırması - STRING olarak karşılaştır
+    const savedCodeString = savedCode.code.toString().trim();
+    if (savedCodeString !== normalizedCode) {
       return NextResponse.json(
         { error: "Kod hatalı" },
         { status: 400 }
@@ -186,7 +197,7 @@ export async function PUT(request: NextRequest) {
     }
 
     if (savedCode.expiresAt < Date.now()) {
-      resetCodes.delete(email);
+      resetCodes.delete(normalizedEmail);
       return NextResponse.json(
         { error: "Kod süresi dolmuş" },
         { status: 400 }
@@ -203,7 +214,7 @@ export async function PUT(request: NextRequest) {
     }
 
     // Kodu sil (tek kullanımlık)
-    resetCodes.delete(email);
+    resetCodes.delete(normalizedEmail);
 
     // Token oluştur (otomatik giriş için)
     const token = Buffer.from(`${user.id}:${user.email}`).toString("base64");

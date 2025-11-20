@@ -8,8 +8,7 @@ import TechBackground from "./components/TechBackground";
 import GlobeSplash from "./components/GlobeSplash";
 
 export default function Home() {
-  const { isAuthenticated, isLoading, login } = useAuth();
-  const [isLoginMode, setIsLoginMode] = useState(true);
+  const { isAuthenticated, isLoading } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showRegisterForm, setShowRegisterForm] = useState(false);
   const [showSplash, setShowSplash] = useState(true);
@@ -24,6 +23,11 @@ export default function Home() {
   const [isSendingCode, setIsSendingCode] = useState(false);
   const [isVerifyingCode, setIsVerifyingCode] = useState(false);
   const [codeSent, setCodeSent] = useState(false);
+  // Login 2FA için state'ler
+  const [showLoginCode, setShowLoginCode] = useState(false);
+  const [loginCode, setLoginCode] = useState("");
+  const [isVerifyingLoginCode, setIsVerifyingLoginCode] = useState(false);
+  const [loginEmail, setLoginEmail] = useState("");
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -42,30 +46,102 @@ export default function Home() {
     setIsSubmitting(true);
 
     try {
-      await login(formData.email, formData.password);
-      // Başarılı giriş sonrası yükleme ekranını göster
+      // Email/password kontrolü ve kod gönderme
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email: formData.email, password: formData.password }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setError(data.error || "E-posta veya şifre hatalı");
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Kod gönderildi - kod giriş ekranını göster
       setIsSubmitting(false);
+      // API'den dönen email'i kullan (normalize edilmiş)
+      setLoginEmail(data.email || formData.email);
+      setShowLoginCode(true);
+      setError(data.message || "E-postanıza giriş doğrulama kodu gönderildi");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Giriş başarısız! Lütfen bilgilerinizi kontrol edin.";
+      setError(message);
+      setIsSubmitting(false);
+    }
+  };
+
+  // Login kodunu doğrula
+  const handleVerifyLoginCode = async () => {
+    // Kodu normalize et (trim, sadece rakamlar, string olarak)
+    const normalizedCode = loginCode.trim().replace(/\D/g, "");
+    
+    if (!normalizedCode || normalizedCode.length !== 6) {
+      setError("6 haneli kodu giriniz");
+      return;
+    }
+
+    setIsVerifyingLoginCode(true);
+    setError("");
+
+    try {
+      const response = await fetch("/api/auth/login/verify-code", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ 
+          email: loginEmail.trim(), 
+          code: normalizedCode // String olarak gönder
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setError(data.error || "Kod doğrulanamadı");
+        setIsVerifyingLoginCode(false);
+        return;
+      }
+
+      // Başarılı - token ve kullanıcı bilgisini kaydet
+      if (data.token) {
+        localStorage.setItem("token", data.token);
+      }
+      if (data.user) {
+        localStorage.setItem("user", JSON.stringify(data.user));
+      }
+
+      // Yükleme ekranını göster
+      setIsVerifyingLoginCode(false);
       setIsProcessingLogin(true);
+      setShowLoginCode(false);
       
-      // Yumuşak geçiş için fade in
       setTimeout(() => {
         setLoginFadeIn(true);
       }, 50);
       
-      // 1.8 saniye sonra fade out başlat
       setTimeout(() => {
         setLoginFadeOut(true);
       }, 1800);
       
-      // 2.3 saniye sonra panele geç (isAuthenticated zaten true olacak)
       setTimeout(() => {
         setIsProcessingLogin(false);
         setLoginFadeIn(false);
         setLoginFadeOut(false);
+        setLoginCode("");
+        setLoginEmail("");
+        window.location.reload(); // AuthContext'i güncellemek için
       }, 2300);
-    } catch (err: any) {
-      setError(err.message || "Giriş başarısız! Lütfen bilgilerinizi kontrol edin.");
-      setIsSubmitting(false);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Kod doğrulanırken hata oluştu";
+      setError(message);
+      setIsVerifyingLoginCode(false);
     }
   };
 
@@ -105,17 +181,9 @@ export default function Home() {
       }
 
       setCodeSent(true);
-      setError("");
-      
-      // Development modunda kodu göster
-      if (data.code) {
-        console.log(`🔐 Şifre Sıfırlama Kodu (Development): ${data.code}`);
-        setError(`Development: Kod konsola yazdırıldı: ${data.code}`);
-      } else {
-        setError(data.message || "E-postanıza kod gönderildi");
-      }
+      setError(data.message || "E-postanıza kod gönderildi");
       setIsSendingCode(false);
-    } catch (err) {
+    } catch {
       setError("Kod gönderilirken hata oluştu");
       setIsSendingCode(false);
     }
@@ -178,8 +246,9 @@ export default function Home() {
         setCodeSent(false);
         window.location.reload(); // AuthContext'i güncellemek için
       }, 2300);
-    } catch (err: any) {
-      setError(err.message || "Kod doğrulanırken hata oluştu");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Kod doğrulanırken hata oluştu";
+      setError(message);
       setIsVerifyingCode(false);
     }
   };
@@ -390,20 +459,29 @@ export default function Home() {
           {error && (
             <div
               style={{
-                background: "#fee",
-                color: "#c33",
+                background: error.includes("gönderildi")
+                  ? "rgba(76, 175, 80, 0.2)"
+                  : "#fee",
+                color: error.includes("gönderildi")
+                  ? "#4caf50"
+                  : "#c33",
                 padding: "12px",
                 borderRadius: "6px",
                 marginBottom: "16px",
                 fontSize: "14px",
-                border: "1px solid #fcc",
+                border: `1px solid ${
+                  error.includes("gönderildi")
+                    ? "rgba(76, 175, 80, 0.4)"
+                    : "#fcc"
+                }`,
               }}
             >
               {error}
             </div>
           )}
 
-          <form onSubmit={handleSubmit}>
+          {!showLoginCode ? (
+            <form onSubmit={handleSubmit}>
             <input
               type="email"
               name="email"
@@ -492,6 +570,114 @@ export default function Home() {
               {isSubmitting ? "Giriş yapılıyor..." : "Giriş Yap"}
             </button>
           </form>
+          ) : (
+            <div>
+              <div
+                style={{
+                  background: "rgba(74, 144, 226, 0.2)",
+                  border: "1px solid rgba(74, 144, 226, 0.4)",
+                  borderRadius: "6px",
+                  padding: "12px",
+                  marginBottom: "16px",
+                }}
+              >
+                <p
+                  style={{
+                    color: "#4a90e2",
+                    fontSize: "14px",
+                    fontWeight: "600",
+                    margin: "0 0 8px 0",
+                  }}
+                >
+                  ✉️ Kod Gönderildi
+                </p>
+                <p
+                  style={{
+                    color: "#b0b0b0",
+                    fontSize: "12px",
+                    margin: 0,
+                  }}
+                >
+                  {loginEmail} adresine gönderilen 6 haneli kodu girin
+                </p>
+              </div>
+              <input
+                type="text"
+                value={loginCode}
+                onChange={(e) => {
+                  // Sadece rakamları al, trim yap, max 6 karakter
+                  const cleaned = e.target.value.replace(/\D/g, "").slice(0, 6);
+                  setLoginCode(cleaned);
+                }}
+                placeholder="000000"
+                maxLength={6}
+                inputMode="numeric"
+                style={{
+                  width: "100%",
+                  padding: "14px 16px",
+                  fontSize: "24px",
+                  borderRadius: "6px",
+                  border: "1px solid #404040",
+                  background: "#1a1a1a",
+                  color: "#e8e8e8",
+                  marginBottom: "16px",
+                  boxSizing: "border-box",
+                  outline: "none",
+                  textAlign: "center",
+                  letterSpacing: "8px",
+                  fontFamily: "monospace",
+                }}
+                onFocus={(e) => {
+                  e.target.style.borderColor = "#4a90e2";
+                  e.target.style.background = "#252525";
+                }}
+                onBlur={(e) => {
+                  e.target.style.borderColor = "#404040";
+                  e.target.style.background = "#1a1a1a";
+                }}
+              />
+              <button
+                type="button"
+                onClick={handleVerifyLoginCode}
+                disabled={isVerifyingLoginCode || loginCode.length !== 6}
+                style={{
+                  width: "100%",
+                  padding: "12px",
+                  fontSize: "17px",
+                  fontWeight: "bold",
+                  color: "#fff",
+                  background: isVerifyingLoginCode || loginCode.length !== 6 ? "#3a5a7a" : "#4a90e2",
+                  border: "none",
+                  borderRadius: "6px",
+                  cursor: isVerifyingLoginCode || loginCode.length !== 6 ? "not-allowed" : "pointer",
+                  marginBottom: "12px",
+                  transition: "background 0.2s",
+                }}
+              >
+                {isVerifyingLoginCode ? "Doğrulanıyor..." : "Giriş Yap"}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowLoginCode(false);
+                  setLoginCode("");
+                  setError("");
+                }}
+                style={{
+                  width: "100%",
+                  padding: "8px",
+                  background: "transparent",
+                  color: "#b0b0b0",
+                  border: "1px solid #404040",
+                  borderRadius: "6px",
+                  cursor: "pointer",
+                  fontSize: "14px",
+                }}
+              >
+                Geri Dön
+              </button>
+            </div>
+          )}
 
           <div style={{ textAlign: "center", marginBottom: "20px" }}>
             <a

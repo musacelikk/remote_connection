@@ -39,7 +39,7 @@ async function ensureDbFile() {
   const dbDir = path.dirname(DB_FILE_PATH);
   try {
     await fs.mkdir(dbDir, { recursive: true });
-  } catch (error) {
+  } catch {
     // Klasör zaten varsa hata vermez
   }
 

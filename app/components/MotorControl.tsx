@@ -6,9 +6,26 @@ import TechBackground from "./TechBackground";
 
 const TOPIC = "motor/control";
 
+type MqttEventHandler = (...args: unknown[]) => void;
+
+type MqttClient = {
+  connected: boolean;
+  publish: (topic: string, message: string) => void;
+  subscribe: (topic: string) => void;
+  on: (event: string, handler: MqttEventHandler) => void;
+  end: () => void;
+};
+
+type MqttGlobal = Window &
+  typeof globalThis & {
+    mqtt?: {
+      connect: (url: string, options: { username: string; password: string }) => MqttClient;
+    };
+  };
+
 export default function MotorControl() {
   const { user, logout, changePassword } = useAuth();
-  const clientRef = useRef<any>(null);
+  const clientRef = useRef<MqttClient | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState("Bağlanıyor...");
   const [lastCommand, setLastCommand] = useState<string | null>(null);
@@ -29,13 +46,18 @@ export default function MotorControl() {
       console.log("MQTT CDN yüklendi!");
 
       // --- 🔥 HiveMQ Cloud WEB SOCKET bağlantısı ---
-      const client = (window as any).mqtt.connect(
-        "wss://5ea19a4f93b54b1a9b3944441bb6b45e.s1.eu.hivemq.cloud:8884/mqtt",
-        {
-          username: "musacelik",
-          password: "132228071.Aa",
-        }
-      );
+      const mqttGlobal = window as MqttGlobal;
+      const mqttLibrary = mqttGlobal.mqtt;
+      if (!mqttLibrary) {
+        console.error("MQTT kütüphanesi yüklenemedi!");
+        setConnectionStatus("MQTT kütüphanesi yüklenemedi");
+        return;
+      }
+
+      const client = mqttLibrary.connect("wss://5ea19a4f93b54b1a9b3944441bb6b45e.s1.eu.hivemq.cloud:8884/mqtt", {
+        username: "musacelik",
+        password: "132228071.Aa",
+      });
 
       clientRef.current = client;
 
@@ -47,11 +69,11 @@ export default function MotorControl() {
         setConnectionStatus("Bağlı");
       });
 
-      client.on("message", (topic: string, message: any) => {
+      client.on("message", (topic: string, message: { toString: () => string }) => {
         console.log("MQTT Mesaj:", topic, "->", message.toString());
       });
 
-      client.on("error", (err: any) => {
+      client.on("error", (err: unknown) => {
         console.error("MQTT Hatası:", err);
         setIsConnected(false);
         setConnectionStatus("Bağlantı Hatası");
@@ -67,7 +89,7 @@ export default function MotorControl() {
     document.body.appendChild(script);
 
     return () => {
-      if (clientRef.current) clientRef.current.end();
+      clientRef.current?.end();
     };
   }, []);
 
@@ -134,8 +156,9 @@ export default function MotorControl() {
       setTimeout(() => {
         setSettingsSuccess("");
       }, 3000);
-    } catch (error: any) {
-      setSettingsError(error.message || "Şifre değiştirme başarısız!");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Şifre değiştirme başarısız!";
+      setSettingsError(message);
     }
   };
 

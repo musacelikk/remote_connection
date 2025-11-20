@@ -214,8 +214,9 @@ export default function RegisterForm({
       setTimeout(() => {
         onClose();
       }, 2500);
-    } catch (err: any) {
-      setError(err.message || "Kayıt işlemi başarısız!");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Kayıt işlemi başarısız!";
+      setError(message);
       setIsSubmitting(false);
     }
   };
@@ -1081,7 +1082,7 @@ export default function RegisterForm({
                     }}
                   />
                   <span>
-                    KVKK Aydınlatma Metni'ni okudum, anladım ve onaylıyorum.{" "}
+                    KVKK Aydınlatma Metni&rsquo;ni okudum, anladım ve onaylıyorum.{" "}
                     <span style={{ color: "red" }}>*</span>
                   </span>
                 </label>
@@ -1138,7 +1139,7 @@ export default function RegisterForm({
                     }}
                   />
                   <span>
-                    Hizmet Sözleşmesi'ni okudum, anladım ve onaylıyorum.{" "}
+                    Hizmet Sözleşmesi&rsquo;ni okudum, anladım ve onaylıyorum.{" "}
                     <span style={{ color: "red" }}>*</span>
                   </span>
                 </label>

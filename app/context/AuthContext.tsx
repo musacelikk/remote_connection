@@ -82,8 +82,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(data.user);
         localStorage.setItem("user", JSON.stringify(data.user));
       }
-    } catch (error: any) {
-      throw error;
+    } catch (error) {
+      if (error instanceof Error) {
+        throw error;
+      }
+      throw new Error("Beklenmeyen giriş hatası");
     }
   };
 
@@ -111,8 +114,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(responseData.user);
         localStorage.setItem("user", JSON.stringify(responseData.user));
       }
-    } catch (error: any) {
-      throw error;
+    } catch (error) {
+      if (error instanceof Error) {
+        throw error;
+      }
+      throw new Error("Beklenmeyen kayıt hatası");
     }
   };
 
@@ -135,8 +141,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       return data;
-    } catch (error: any) {
-      throw error;
+    } catch (error) {
+      if (error instanceof Error) {
+        throw error;
+      }
+      throw new Error("Beklenmeyen şifre değiştirme hatası");
     }
   };
 
